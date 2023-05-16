@@ -1,35 +1,60 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Navbar, createStyles } from "@mantine/core";
+import { useState } from "react";
+import { useQuery } from "react-query";
+import { fetchImagesByBBox } from "./api/queries";
+import { BBOX_INIT, BBox, ImageBBox } from "./common";
+import MapBox from "./components/MapBox";
+import SidebarLogo from "./components/SidebarLogo";
+import SidebarQuery, { InputBBox } from "./components/SidebarQuery";
+import SidebarResults from "./components/SidebarResults";
 
-function App() {
-  const [count, setCount] = useState(0)
+const SIDEBAR_WIDTH = 300;
+const useStyles = createStyles({
+  layout: {
+    display: "flex",
+  },
+});
+
+export default function App() {
+  const { classes } = useStyles();
+  const [inputBBox, setInputBBox] = useState<InputBBox>(BBOX_INIT);
+  const [queryBBox, setQueryBBox] = useState<BBox | undefined>(undefined);
+  const [active, setActive] = useState<ImageBBox | undefined>(undefined);
+  const [mapState, setMapState] = useState(BBOX_INIT);
+
+  const queryImages = useQuery({
+    queryKey: ["images", queryBBox?.join()],
+    queryFn: fetchImagesByBBox(queryBBox),
+    enabled: !!queryBBox,
+  });
+  const handleSubmit = () =>
+    setQueryBBox(inputBBox.map((e) => Number(e)) as BBox);
+  const handleUseViewport = () => setInputBBox(mapState);
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className={classes.layout}>
+      <Navbar width={{ base: SIDEBAR_WIDTH }}>
+        <SidebarLogo />
+        <SidebarQuery
+          value={inputBBox}
+          onChange={setInputBBox}
+          onSubmit={handleSubmit}
+          onUseViewport={handleUseViewport}
+        />
+        <SidebarResults
+          loading={queryImages.isLoading}
+          data={queryImages.data}
+          active={active}
+          onClick={setActive}
+        />
+      </Navbar>
 
-export default App
+      <MapBox
+        onChange={setMapState}
+        queryBBox={queryBBox}
+        activeBBox={active?.bbox}
+        results={queryImages.data || []}
+      />
+    </div>
+  );
+}
